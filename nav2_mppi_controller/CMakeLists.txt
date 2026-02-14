@@ -14,6 +14,7 @@ set(XTENSOR_USE_XSIMD 1)
 find_package(ament_cmake REQUIRED)
 find_package(xsimd REQUIRED)
 find_package(xtensor REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 
 include_directories(
   include
@@ -33,6 +34,7 @@ set(dependencies_pkgs
   tf2_geometry_msgs
   tf2_eigen
   tf2_ros
+  diagnostic_msgs
 )
 
 foreach(pkg IN LISTS dependencies_pkgs)

@@ -38,6 +38,8 @@
 #include "nav2_mppi_controller/critic_data.hpp"
 #include "nav2_mppi_controller/critic_function.hpp"
 
+#include "nav2_mppi_controller/tools/critic_debug_publish.hpp"
+
 namespace mppi
 {
 
@@ -104,6 +106,10 @@ protected:
   Critics critics_;
 
   rclcpp::Logger logger_{rclcpp::get_logger("MPPIController")};
+
+private:
+    std::unique_ptr<mppi::DebugPublisher> debug_pub_;
+    bool enable_debug_pub_;
 };
 
 }  // namespace mppi

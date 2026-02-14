@@ -37,6 +37,7 @@ void CriticManager::getParams()
   auto node = parent_.lock();
   auto getParam = parameters_handler_->getParamGetter(name_);
   getParam(critic_names_, "critics", std::vector<std::string>{}, ParameterType::Static);
+  getParam(enable_debug_pub_, "publish_critics_debug", false, ParameterType::Static);
 }
 
 void CriticManager::loadCritics()
@@ -57,6 +58,17 @@ void CriticManager::loadCritics()
       parameters_handler_);
     RCLCPP_INFO(logger_, "Critic loaded : %s", fullname.c_str());
   }
+
+  auto node = parent_.lock();
+  if (enable_debug_pub_){
+    debug_pub_ = std::make_unique<mppi::DebugPublisher>();
+    debug_pub_->configure(
+      node,
+      "~/critics_debug",
+      true,
+      10.0
+    );
+  }
 }
 
 std::string CriticManager::getFullName(const std::string & name)
@@ -67,12 +79,55 @@ std::string CriticManager::getFullName(const std::string & name)
 void CriticManager::evalTrajectoriesScores(
   CriticData & data) const
 {
-  for (const auto & critic : critics_) {
+  // for (const auto & critic : critics_) {
+  //   if (data.fail_flag) {
+  //     break;
+  //   }
+  //   critic->score(data);
+  // }
+  std::vector<bool> changed;
+  std::vector<float> delta_sum;
+  std::vector<float> delta_abs_sum;
+  
+  if (enable_debug_pub_) {
+    changed.reserve(critics_.size());
+    delta_sum.reserve(critics_.size());
+    delta_abs_sum.reserve(critics_.size());
+  }
+
+  for (size_t i = 0; i < critics_.size(); ++i) {
     if (data.fail_flag) {
       break;
     }
-    critic->score(data);
+
+    xt::xtensor<float, 1> costs_before;
+    if (enable_debug_pub_) {
+      costs_before = data.costs;
+    }
+
+    critics_[i]->score(data);
+
+    if (enable_debug_pub_) {
+      xt::xtensor<float, 1> cost_diff = data.costs - costs_before;
+      float sum = xt::sum(cost_diff)();
+      float abs_sum = xt::sum(xt::abs(cost_diff))();
+      
+      delta_sum.push_back(sum);
+      delta_abs_sum.push_back(abs_sum);
+      changed.push_back(sum != 0.0f || abs_sum != 0.0f);
+    }
   }
+
+  if (debug_pub_) {
+    debug_pub_->publishIfDue(
+      critic_names_,
+      changed,
+      delta_sum,
+      delta_abs_sum,
+      data.fail_flag
+    );
+  }
+
 }
 
 }  // namespace mppi
